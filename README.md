@@ -22,6 +22,7 @@ and exports a single method to the fserver, ``GetFortuneInfo``, that takes the a
 pointer to ``FortuneInfoMessage`` for the result. The fserver computes a new nonce and returns the filled-in 
 ``FortuneInfoMessage``. The exact declaration of ``GetFortuneInfo`` and the input/output types is:
 
+``
 type FortuneServerRPC struct{}
 
 // Message with details for contacting the fortune-server.
@@ -31,6 +32,7 @@ type FortuneInfoMessage struct {
 }
 func (this *FortuneServerRPC) GetFortuneInfo(clientAddr string,	
 fInfoMsg *FortuneInfoMessage) error { ... } 
+``
 
 This simple RPC interaction is also illustrated in the following diagram:
 
