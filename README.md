@@ -20,10 +20,10 @@ fserver (which you will implement as separate go programs).
 The aserver and fserver communicate via RPC over TCP. The aserver is the server in this RPC interaction 
 and exports a single method to the fserver, ``GetFortuneInfo``, that takes the address of the client and a 
 pointer to ``FortuneInfoMessage`` for the result. The fserver computes a new nonce and returns the filled-in 
-``FortuneInfoMessage``. The exact declaration of ``GetFortuneInfo`` and the input/output types is:
+``FortuneInfoMessage``. The exact declaration of ``GetFortuneInfo`` and the input/output types is::
 
 
-``    type FortuneServerRPC struct{}
+    type FortuneServerRPC struct{}
 
    // Message with details for contacting the fortune-server.
     type FortuneInfoMessage struct {
@@ -31,7 +31,7 @@ pointer to ``FortuneInfoMessage`` for the result. The fserver computes a new non
 	    FortuneNonce  int64  // e.g., 2016
     }
 	func (this *FortuneServerRPC) GetFortuneInfo(clientAddr string,	
-	fInfoMsg *FortuneInfoMessage) error { ... } ``
+	fInfoMsg *FortuneInfoMessage) error { ... }
 
 
 This simple RPC interaction is also illustrated in the following diagram:
