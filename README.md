@@ -23,7 +23,7 @@ pointer to ``FortuneInfoMessage`` for the result. The fserver computes a new non
 ``FortuneInfoMessage``. The exact declaration of ``GetFortuneInfo`` and the input/output types is:
 
 
-    type FortuneServerRPC struct{}::
+    type FortuneServerRPC struct{} ::
 
     // Message with details for contacting the fortune-server.
     type FortuneInfoMessage struct {
