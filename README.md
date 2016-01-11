@@ -9,7 +9,7 @@
 
 
 <h3>
-	<b>High-level protocol description</b>
+	<b>High-Level Protocol Description</b>
 </h3>
 
 The aserver and fserver must together implement the protocol described in the first assignment.
@@ -18,9 +18,9 @@ in the first assignment. All that remains is to describe the interactions betwee
 fserver (which you will implement as separate go programs).
 
 The aserver and fserver communicate via RPC over TCP. The aserver is the server in this RPC interaction 
-and exports a single method to the fserver, GetFortuneInfo, that takes the address of the client and a 
-pointer to FortuneInfoMessage for the result. The fserver computes a new nonce and returns the filled-in 
-FortuneInfoMessage. The exact declaration of GetFortuneInfo and the input/output types is:
+and exports a single method to the fserver, ''GetFortuneInfo'', that takes the address of the client and a 
+pointer to ''FortuneInfoMessage'' for the result. The fserver computes a new nonce and returns the filled-in 
+''FortuneInfoMessage''. The exact declaration of ''GetFortuneInfo'' and the input/output types is:
 
 type FortuneServerRPC struct{}
 
