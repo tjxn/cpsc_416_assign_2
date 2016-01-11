@@ -74,7 +74,7 @@ This simple RPC interaction is also illustrated in the following diagram:
  - The fserver can assume that there is a single connecting aserver (over RPC).
  - Once started the aserver and fserver never fail.
  - The fserver is run before the aserver.
- - Your implementation does not need to survive internal errors, such as errors that 
+ - Your implementation does not need to survive _**internal**_ errors, such as errors that 
 	arise during marshalling of JSON messages, in RPC communication, etc.
 	
 	
