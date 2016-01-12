@@ -89,7 +89,7 @@ These programs must conform to the following command line usage:
 
 - [aserver UDP ip:port] : the UDP address on which the aserver receives new client connections
 - [fserver RPC ip:port] : the TCP address on which the fserver listens to RPC connections from the aserver
-- [secret] : an int64 secret
+- [secret] : an ``int64`` secret
 
 ``go run fortune-server.go [fserver RPC ip:port] [fserver UDP ip:port]``
 - [fserver RPC ip:port] : the TCP address on which the fserver listens to RPC connections from the aserver
