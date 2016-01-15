@@ -17,9 +17,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 /////////// Msgs used by both auth and fortune servers:
@@ -70,6 +72,17 @@ func errorCheck(err error, message string) {
 	}
 }
 
+func startListening(localAddr string) *net.UDPConn {
+
+	laddr, err := net.ResolveUDPAddr("udp", localAddr)
+	errorCheck(err, "Something is Wrong with the given local address")
+
+	conn, err := net.ListenUDP("udp", laddr)
+	errorCheck(err, "Something Went Wrong with Listening for UDP Packets")
+
+	return conn
+}
+
 func openConnection(localAddr, remoteAddr string) *net.UDPConn {
 
 	_, port, err := net.SplitHostPort(localAddr)
@@ -103,16 +116,16 @@ func sendBytes(conn *net.UDPConn, message []byte) {
 
 }
 
-func readMessage(conn *net.UDPConn) []byte {
+func readMessage(conn *net.UDPConn) ([]byte, *net.UDPAddr) {
 
 	buffer := make([]byte, 1024)
 
-	bytesRead, _, err := conn.ReadFromUDP(buffer)
+	bytesRead, retAddr, err := conn.ReadFromUDP(buffer)
 	errorCheck(err, "Problem with Reading UDP Packet")
 
 	buffer = buffer[:bytesRead]
 
-	return buffer
+	return buffer, retAddr
 }
 
 func convertStringToInt64(toConvert string) int64 {
@@ -196,6 +209,28 @@ func createFortuneReqMessage(nonce int64) []byte {
 	return packet
 }
 
+func createNonceMessage(nonce int64) []byte {
+	nonceMessage := &NonceMessage{
+		Nonce: nonce,
+	}
+
+	packet, err := json.Marshal(&nonceMessage)
+	errorCheck(err, "Error in creating Nonce Message")
+
+	return packet
+}
+
+func createErrorMessage(message string) []byte {
+	errorMessage := &ErrMessage{
+		Error: message,
+	}
+
+	packet, err := json.Marshal(&errorMessage)
+	errorCheck(err, "Error in creating Error Message")
+
+	return packet
+}
+
 func parseFortuneMessage(message []byte) FortuneMessage {
 
 	fortune := FortuneMessage{}
@@ -206,12 +241,50 @@ func parseFortuneMessage(message []byte) FortuneMessage {
 	return fortune
 }
 
+func parseHashMessage(message []byte) (bool, HashMessage) {
+
+	hashMessage := HashMessage{}
+
+	err := json.Unmarshal(message, &hashMessage)
+
+	if err != nil {
+		return false, hashMessage
+	} else {
+		return true, hashMessage
+	}
+}
+
+func recordClientHash(clientAddr *net.UDPAddr, hash []byte, clientList map[string][]byte) {
+	clientList[clientAddr.String()] = hash
+}
+
+func generateNonce() int64 {
+	source := rand.NewSource(time.Now().UnixNano())
+	randomGenerator := rand.New(source)
+
+	return randomGenerator.Int63()
+}
+
+func getClientHash(clientAddr *net.UDPAddr, clientList map[string][]byte) []byte {
+	return clientList[clientAddr.String()]
+}
+
+func checkHashMatch(expectedHash []byte, givenHash string) bool {
+	var expHash string = convertByteSpliceToHexString(expectedHash)
+
+	if expHash == givenHash {
+		return true
+	} else {
+		return false
+	}
+}
+
 // Main workhorse method.
 func main() {
 
 	// Arguments
 	var localAddr string = os.Args[1]
-	var remoteAddr string = os.Args[2]
+	//var remoteAddr string = os.Args[2]
 	var secret string = os.Args[3]
 
 	// Hardcoded Arguments for Easier Debugging
@@ -219,35 +292,74 @@ func main() {
 	//var remoteAddr string = "198.162.52.206:1999"
 	//var secret string = "2016"
 
-	var conn *net.UDPConn = openConnection(localAddr, remoteAddr)
+	clientList := make(map[string][]byte)
 
-	sendString(conn, "Arbitrary Payload")
+	var conn *net.UDPConn = startListening(localAddr)
 
-	var message []byte = readMessage(conn)
+	for {
 
-	var nonce NonceMessage = parseNonceMessage(message)
+		message, clientAddr := readMessage(conn)
 
-	var packet []byte = createHashMessage(secret, nonce)
+		check, hashMessage := parseHashMessage(message)
 
-	sendBytes(conn, packet)
+		if check == true {
 
-	message = readMessage(conn)
+			hash := getClientHash(clientAddr, clientList)
 
-	var fortuneinfo FortuneInfoMessage = parseFortuneInfoMessage(message)
+			if hash == "" {
+				var packet []byte = createErrorMessage("unknown remote client address")
+				// Send ErrMessage
+				conn.WriteToUDP(packet, clientAddr)
+			}
 
-	conn.Close()
+			var check bool = checkHashMatch(hash, hashMessage.Hash)
 
-	conn = openConnection(localAddr, fortuneinfo.FortuneServer)
+			if check {
+				fmt.Println("True")
+			} else {
+				var packet []byte = createErrorMessage("unexpected hash value")
+				// Send ErrMessage
+				conn.WriteToUDP(packet, clientAddr)
+			}
 
-	packet = createFortuneReqMessage(fortuneinfo.FortuneNonce)
+			//getFortuneInfo
+			//sendFortuneInfoMessage
+		} else {
+			var nonce int64 = generateNonce()
+			fmt.Printf("Nonce: %d\n", nonce)
 
-	sendBytes(conn, packet)
+			hash := computeMd5(secret, nonce)
+			recordClientHash(clientAddr, hash, clientList)
+			var packet = createNonceMessage(nonce)
 
-	message = readMessage(conn)
+			// Send NonceMessage
+			conn.WriteToUDP(packet, clientAddr)
+		}
+	}
 
-	var fortune FortuneMessage = parseFortuneMessage(message)
+	//	var nonce NonceMessage = parseNonceMessage(message)
 
-	fmt.Println(fortune.Fortune)
+	//	var packet []byte = createHashMessage(secret, nonce)
 
-	conn.Close()
+	//	sendBytes(conn, packet)
+
+	//	message = readMessage(conn)
+
+	//	var fortuneinfo FortuneInfoMessage = parseFortuneInfoMessage(message)
+
+	//	conn.Close()
+
+	//	conn = openConnection(localAddr, fortuneinfo.FortuneServer)
+
+	//	packet = createFortuneReqMessage(fortuneinfo.FortuneNonce)
+
+	//	sendBytes(conn, packet)
+
+	//	message = readMessage(conn)
+
+	//	var fortune FortuneMessage = parseFortuneMessage(message)
+
+	//	fmt.Println(fortune.Fortune)
+
+	//	conn.Close()
 }
