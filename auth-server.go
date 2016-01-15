@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/rpc"
 	"os"
 	"strconv"
 	"time"
@@ -220,6 +221,13 @@ func createNonceMessage(nonce int64) []byte {
 	return packet
 }
 
+func createFortuneInfoMessage(fortuneInfo FortuneInfoMessage) []byte {
+	packet, err := json.Marshal(&fortuneInfo)
+	errorCheck(err, "Error in sending FortuneInfoMessage")
+
+	return packet
+}
+
 func createErrorMessage(message string) []byte {
 	errorMessage := &ErrMessage{
 		Error: message,
@@ -279,87 +287,78 @@ func checkHashMatch(expectedHash []byte, givenHash string) bool {
 	}
 }
 
+type Args struct {
+	ClientAddr  string
+	FortuneInfo *FortuneInfoMessage
+}
+
+func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secret string, message []byte, clientAddr *net.UDPAddr) {
+
+	check, hashMessage := parseHashMessage(message)
+
+	if check == true {
+
+		hash := getClientHash(clientAddr, clientList)
+
+		if len(hash) <= 0 {
+			var packet []byte = createErrorMessage("unknown remote client address")
+			// Send ErrMessage
+			conn.WriteToUDP(packet, clientAddr)
+		}
+
+		var check bool = checkHashMatch(hash, hashMessage.Hash)
+
+		if check {
+			fmt.Println("True")
+		} else {
+			var packet []byte = createErrorMessage("unexpected hash value")
+			// Send ErrMessage
+			conn.WriteToUDP(packet, clientAddr)
+		}
+
+		//getFortuneInfo
+		client, _ := rpc.DialHTTP("tcp", remoteAddr)
+		fortuneInfo := FortuneInfoMessage{}
+
+		err := client.Call("FortuneServerRPC.GetFortuneInfo", localAddr, &fortuneInfo)
+		errorCheck(err, "rcp call")
+
+		//sendFortuneInfoMessage
+		var packet []byte = createFortuneInfoMessage(fortuneInfo)
+		conn.WriteToUDP(packet, clientAddr)
+
+	} else {
+		var nonce int64 = generateNonce()
+		fmt.Printf("Nonce: %d\n", nonce)
+
+		hash := computeMd5(secret, nonce)
+		recordClientHash(clientAddr, hash, clientList)
+		var packet = createNonceMessage(nonce)
+
+		// Send NonceMessage
+		conn.WriteToUDP(packet, clientAddr)
+	}
+
+}
+
+var clientList map[string][]byte
+
 // Main workhorse method.
 func main() {
 
 	// Arguments
 	var localAddr string = os.Args[1]
-	//var remoteAddr string = os.Args[2]
+	var remoteAddr string = os.Args[2]
 	var secret string = os.Args[3]
 
-	// Hardcoded Arguments for Easier Debugging
-	//var localAddr string = "127.0.0.1:2020"
-	//var remoteAddr string = "198.162.52.206:1999"
-	//var secret string = "2016"
-
-	clientList := make(map[string][]byte)
+	clientList = make(map[string][]byte)
 
 	var conn *net.UDPConn = startListening(localAddr)
-
+	fmt.Println("Starting Loop")
 	for {
-
 		message, clientAddr := readMessage(conn)
 
-		check, hashMessage := parseHashMessage(message)
-
-		if check == true {
-
-			hash := getClientHash(clientAddr, clientList)
-
-			if hash == "" {
-				var packet []byte = createErrorMessage("unknown remote client address")
-				// Send ErrMessage
-				conn.WriteToUDP(packet, clientAddr)
-			}
-
-			var check bool = checkHashMatch(hash, hashMessage.Hash)
-
-			if check {
-				fmt.Println("True")
-			} else {
-				var packet []byte = createErrorMessage("unexpected hash value")
-				// Send ErrMessage
-				conn.WriteToUDP(packet, clientAddr)
-			}
-
-			//getFortuneInfo
-			//sendFortuneInfoMessage
-		} else {
-			var nonce int64 = generateNonce()
-			fmt.Printf("Nonce: %d\n", nonce)
-
-			hash := computeMd5(secret, nonce)
-			recordClientHash(clientAddr, hash, clientList)
-			var packet = createNonceMessage(nonce)
-
-			// Send NonceMessage
-			conn.WriteToUDP(packet, clientAddr)
-		}
+		go handleRequest(conn, localAddr, remoteAddr, secret, message, clientAddr)
 	}
 
-	//	var nonce NonceMessage = parseNonceMessage(message)
-
-	//	var packet []byte = createHashMessage(secret, nonce)
-
-	//	sendBytes(conn, packet)
-
-	//	message = readMessage(conn)
-
-	//	var fortuneinfo FortuneInfoMessage = parseFortuneInfoMessage(message)
-
-	//	conn.Close()
-
-	//	conn = openConnection(localAddr, fortuneinfo.FortuneServer)
-
-	//	packet = createFortuneReqMessage(fortuneinfo.FortuneNonce)
-
-	//	sendBytes(conn, packet)
-
-	//	message = readMessage(conn)
-
-	//	var fortune FortuneMessage = parseFortuneMessage(message)
-
-	//	fmt.Println(fortune.Fortune)
-
-	//	conn.Close()
 }

@@ -16,10 +16,15 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net"
+	"net/http"
+	"net/rpc"
 	"os"
 	"strconv"
+	"time"
 )
 
 /////////// Msgs used by both auth and fortune servers:
@@ -184,6 +189,17 @@ func parseFortuneInfoMessage(message []byte) FortuneInfoMessage {
 
 }
 
+func startListening(localAddr string) *net.UDPConn {
+
+	laddr, err := net.ResolveUDPAddr("udp", localAddr)
+	errorCheck(err, "Something is Wrong with the given local address")
+
+	conn, err := net.ListenUDP("udp", laddr)
+	errorCheck(err, "Something Went Wrong with Listening for UDP Packets")
+
+	return conn
+}
+
 func createFortuneReqMessage(nonce int64) []byte {
 
 	fortuneReq := &FortuneReqMessage{
@@ -206,48 +222,84 @@ func parseFortuneMessage(message []byte) FortuneMessage {
 	return fortune
 }
 
+func generateNonce() int64 {
+	source := rand.NewSource(time.Now().UnixNano())
+	randomGenerator := rand.New(source)
+
+	return randomGenerator.Int63()
+}
+
+type FortuneServerRPC struct{}
+
+func (this *FortuneServerRPC) GetFortuneInfo(clientAddr string, fInfoMsg *FortuneInfoMessage) error {
+	fInfoMsg.FortuneNonce = generateNonce()
+	fInfoMsg.FortuneServer = udpServerAddress
+
+	fmt.Printf("Nonce: %d\n", fInfoMsg.FortuneNonce)
+
+	recordClientNonce(clientAddr, fInfoMsg.FortuneNonce)
+	return errors.New("")
+}
+
+func recordClientNonce(clientAddr string, nonce int64) {
+	clientList[clientAddr] = nonce
+}
+
+var udpServerAddress string
+var clientList map[string]int64
+
 // Main workhorse method.
 func main() {
 
 	// Arguments
-	var localAddr string = os.Args[1]
-	var remoteAddr string = os.Args[2]
-	var secret string = os.Args[3]
+	//var rpcAddr string = os.Args[1]
+	udpServerAddress = os.Args[2]
+	//var fortune string = os.Args[3]
 
 	// Hardcoded Arguments for Easier Debugging
-	//var localAddr string = "127.0.0.1:2020"
-	//var remoteAddr string = "198.162.52.206:1999"
-	//var secret string = "2016"
+	//var rpcAddr string = "127.0.0.1:2020"
+	//var udpAddr string = "198.162.52.206:1999"
+	//var fortune string = "2016"
 
-	var conn *net.UDPConn = openConnection(localAddr, remoteAddr)
+	clientList = make(map[string]int64)
 
-	sendString(conn, "Arbitrary Payload")
+	rpcFunc := new(FortuneServerRPC)
+	rpc.Register(rpcFunc)
+	rpc.HandleHTTP()
 
-	var message []byte = readMessage(conn)
+	err := http.ListenAndServe(":1234", nil)
+	errorCheck(err, "listen and serve")
+	//var conn *net.UDPConn = startListening(udpServerAddress)
 
-	var nonce NonceMessage = parseNonceMessage(message)
+	//	var conn *net.UDPConn = openConnection(localAddr, remoteAddr)
 
-	var packet []byte = createHashMessage(secret, nonce)
+	//	sendString(conn, "Arbitrary Payload")
 
-	sendBytes(conn, packet)
+	//	var message []byte = readMessage(conn)
 
-	message = readMessage(conn)
+	//	var nonce NonceMessage = parseNonceMessage(message)
 
-	var fortuneinfo FortuneInfoMessage = parseFortuneInfoMessage(message)
+	//	var packet []byte = createHashMessage(secret, nonce)
 
-	conn.Close()
+	//	sendBytes(conn, packet)
 
-	conn = openConnection(localAddr, fortuneinfo.FortuneServer)
+	//	message = readMessage(conn)
 
-	packet = createFortuneReqMessage(fortuneinfo.FortuneNonce)
+	//	var fortuneinfo FortuneInfoMessage = parseFortuneInfoMessage(message)
 
-	sendBytes(conn, packet)
+	//	conn.Close()
 
-	message = readMessage(conn)
+	//	conn = openConnection(localAddr, fortuneinfo.FortuneServer)
 
-	var fortune FortuneMessage = parseFortuneMessage(message)
+	//	packet = createFortuneReqMessage(fortuneinfo.FortuneNonce)
 
-	fmt.Println(fortune.Fortune)
+	//	sendBytes(conn, packet)
 
-	conn.Close()
+	//	message = readMessage(conn)
+
+	//	var fortune FortuneMessage = parseFortuneMessage(message)
+
+	//	fmt.Println(fortune.Fortune)
+
+	//	conn.Close()
 }
