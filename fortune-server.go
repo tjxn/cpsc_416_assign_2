@@ -108,18 +108,17 @@ func sendBytes(conn *net.UDPConn, message []byte) {
 
 }
 
-func readMessage(conn *net.UDPConn) []byte {
+func readMessage(conn *net.UDPConn) ([]byte, *net.UDPAddr) {
 
 	buffer := make([]byte, 1024)
-
-	bytesRead, _, err := conn.ReadFromUDP(buffer)
+	fmt.Println("Read from buffer")
+	bytesRead, retAddr, err := conn.ReadFromUDP(buffer)
 	errorCheck(err, "Problem with Reading UDP Packet")
 
 	buffer = buffer[:bytesRead]
 
-	return buffer
+	return buffer, retAddr
 }
-
 func convertStringToInt64(toConvert string) int64 {
 
 	converted, err := strconv.ParseInt(toConvert, 10, 64)
@@ -243,10 +242,63 @@ func (this *FortuneServerRPC) GetFortuneInfo(clientAddr string, fInfoMsg *Fortun
 
 func recordClientNonce(clientAddr string, nonce int64) {
 	clientList[clientAddr] = nonce
+	fmt.Printf("New Addition Address: %s\n", clientAddr)
+	fmt.Printf("New Addition Nonce: %d\n", clientList[clientAddr])
 }
 
 var udpServerAddress string
 var clientList map[string]int64
+
+func parseFortuneReqMessage(message []byte) FortuneReqMessage {
+	fortuneReq := FortuneReqMessage{}
+
+	err := json.Unmarshal(message, &fortuneReq)
+	errorCheck(err, "Error in parsing JSON Fortune Message")
+
+	return fortuneReq
+}
+
+func createErrorMessage(message string) []byte {
+	errorMessage := &ErrMessage{
+		Error: message,
+	}
+
+	packet, err := json.Marshal(&errorMessage)
+	errorCheck(err, "Error in creating Error Message")
+
+	return packet
+}
+
+func createFortuneMessage(fortune string) []byte {
+
+	fortuneMes := &FortuneMessage{
+		Fortune: fortune,
+	}
+
+	packet, err := json.Marshal(fortuneMes)
+	errorCheck(err, "Error in creating Fortune Message")
+
+	return packet
+}
+
+func handleRequest(conn *net.UDPConn, message []byte, clientAddr *net.UDPAddr, fortune string) {
+
+	var fortuneReq FortuneReqMessage = parseFortuneReqMessage(message)
+	fmt.Printf("client address: %s\n", clientAddr.String())
+	fmt.Printf("expected nonce: %d\n", clientList[clientAddr.String()])
+	fmt.Printf("given nonce: %d\n", fortuneReq.FortuneNonce)
+	if clientList[clientAddr.String()] == fortuneReq.FortuneNonce {
+		// send Fortune
+		var packet []byte = createFortuneMessage(fortune)
+		conn.WriteToUDP(packet, clientAddr)
+	} else {
+		var packet []byte = createErrorMessage("unexpected hash value")
+		// Send ErrMessage
+		fmt.Println("Nonce didn't match")
+		conn.WriteToUDP(packet, clientAddr)
+	}
+
+}
 
 // Main workhorse method.
 func main() {
@@ -254,7 +306,7 @@ func main() {
 	// Arguments
 	//var rpcAddr string = os.Args[1]
 	udpServerAddress = os.Args[2]
-	//var fortune string = os.Args[3]
+	var fortune string = os.Args[3]
 
 	// Hardcoded Arguments for Easier Debugging
 	//var rpcAddr string = "127.0.0.1:2020"
@@ -267,15 +319,18 @@ func main() {
 	rpc.Register(rpcFunc)
 	rpc.HandleHTTP()
 
-	err := http.ListenAndServe(":1234", nil)
-	errorCheck(err, "listen and serve")
-	//var conn *net.UDPConn = startListening(udpServerAddress)
+	go http.ListenAndServe(":1234", nil)
+	//errorCheck(err, "listen and serve")
 
-	//	var conn *net.UDPConn = openConnection(localAddr, remoteAddr)
+	fmt.Println("starting listening for udp connection")
 
-	//	sendString(conn, "Arbitrary Payload")
+	var conn *net.UDPConn = startListening(udpServerAddress)
 
-	//	var message []byte = readMessage(conn)
+	for {
+		message, clientAddr := readMessage(conn)
+		fmt.Println("Got a udp packet")
+		go handleRequest(conn, message, clientAddr, fortune)
+	}
 
 	//	var nonce NonceMessage = parseNonceMessage(message)
 

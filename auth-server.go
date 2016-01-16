@@ -320,7 +320,7 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 		client, _ := rpc.DialHTTP("tcp", remoteAddr)
 		fortuneInfo := FortuneInfoMessage{}
 
-		err := client.Call("FortuneServerRPC.GetFortuneInfo", localAddr, &fortuneInfo)
+		err := client.Call("FortuneServerRPC.GetFortuneInfo", clientAddr.String(), &fortuneInfo)
 		errorCheck(err, "rcp call")
 
 		//sendFortuneInfoMessage
