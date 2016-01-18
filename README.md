@@ -55,11 +55,16 @@ This simple RPC interaction is also illustrated in the following diagram:
  - You must use UDP and the message types given out in the first assignment.
  - The servers must implement the following protocol-checks and return an appropriate ``ErrMessage`` when they occur:
 	- fserver: The client sends a malformed message.
+	Error string: "could not interpret message"
 	- aserver: The client sends a hash from a different address than it used to retrieve the nonce.
+	Error string: "unknown remote client address"
 	- aserver: The client sends the wrong hash of secret and nonce.
+	Error string: "unexpected hash value"
 	- fserver: The client sends a fortune nonce from a different address than it used in communicating with the aserver.
+	Error string: "unknown remote client address"
 	- fserver: The client sends an incorrect fortune nonce.
-	- The aserver should respond with a ``NonceMessage`` to all UDP packets that are not of ``HashMessage`` type.
+	Error string: "incorrect fortune nonce"
+- The aserver should respond with a ``NonceMessage`` to all UDP packets that are not of ``HashMessage`` type.
  - All messages must fit into 1024 bytes.
  
  
@@ -91,6 +96,7 @@ These programs must conform to the following command line usage:
 - [fserver RPC ip:port] : the TCP address on which the fserver listens to RPC connections from the aserver
 - [secret] : an ``int64`` secret
 
-``go run fortune-server.go [fserver RPC ip:port] [fserver UDP ip:port]``
+``go run fortune-server.go [fserver RPC ip:port] [fserver UDP ip:port] [fortune-string]``
 - [fserver RPC ip:port] : the TCP address on which the fserver listens to RPC connections from the aserver
 - [fserver UDP ip:port] : the UDP address on which the fserver receives client connections
+- [fortune-string] : a fortune string that may include spaces, but not other whitespace characters
