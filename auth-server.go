@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -221,6 +222,7 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 			var packet []byte = createErrorMessage("unknown remote client address")
 			// Send ErrMessage
 			conn.WriteToUDP(packet, clientAddr)
+			runtime.Goexit()
 		}
 
 		var match bool = checkHashMatch(hash, hashMessage.Hash)
@@ -228,11 +230,12 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 		if !match {
 			var packet []byte = createErrorMessage("unexpected hash value")
 			conn.WriteToUDP(packet, clientAddr)
-			os.Exit(1)
+			runtime.Goexit()
 		}
 
 		// get Fortune Server Info
-		client, _ := rpc.DialHTTP("tcp", remoteAddr)
+		//client, _ := rpc.DialHTTP("tcp", remoteAddr)
+		client, _ := rpc.Dial("tcp", remoteAddr)
 		fortuneInfo := FortuneInfoMessage{}
 
 		err := client.Call("FortuneServerRPC.GetFortuneInfo", clientAddr.String(), &fortuneInfo)

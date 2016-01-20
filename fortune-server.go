@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"net/http"
 	"net/rpc"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -159,10 +159,10 @@ func parseFortuneReqMessage(message []byte, clientAddr *net.UDPAddr, conn *net.U
 
 	err := json.Unmarshal(message, &fortuneReq)
 
-	if err != nil {
+	if err != nil || fortuneReq.FortuneNonce == 0 {
 		var packet = createErrorMessage("could not interpret message")
 		conn.WriteToUDP(packet, clientAddr)
-		os.Exit(1)
+		runtime.Goexit()
 	}
 
 	return fortuneReq
@@ -216,9 +216,20 @@ func handleRequest(conn *net.UDPConn, message []byte, clientAddr *net.UDPAddr, f
 func startRPC(rpcAddr string) {
 	rpcFunc := new(FortuneServerRPC)
 	rpc.Register(rpcFunc)
-	rpc.HandleHTTP()
 
-	go http.ListenAndServe(rpcAddr, nil)
+	addr, err := net.ResolveTCPAddr("tcp", rpcAddr)
+	errorCheck(err, "Problem Resolving given rpc Address")
+
+	inbound, err := net.ListenTCP("tcp", addr)
+	errorCheck(err, "Problem listening for rcp calls")
+
+	go listenAndServe(inbound)
+}
+
+func listenAndServe(listener net.Listener) {
+	for {
+		rpc.Accept(listener)
+	}
 }
 
 // Main workhorse method.
