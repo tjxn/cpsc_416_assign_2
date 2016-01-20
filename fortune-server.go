@@ -1,11 +1,11 @@
 /*
-Implements the solution to assignment 1 for UBC CS 416 2015 W2.
+Implements the solution to assignment 2 for UBC CS 416 2015 W2.
 
 Usage:
-$ go run client.go [local UDP ip:port] [aserver UDP ip:port] [secret]
+$ go run fortune-server.go [Local rpc ip:port] [Local UDP ip:port] [fortune-string]
 
 Example:
-$ go run client.go 127.0.0.1:2020 198.162.52.206:1999
+$ go run fortune-server.go 192.168.1.146:1234 192.168.1.146:3000 "Hello World"
 
 */
 
@@ -191,6 +191,8 @@ func createFortuneMessage(fortune string) []byte {
 	return packet
 }
 
+// Main workhorse method.
+// Handles any incoming packet
 func handleRequest(conn *net.UDPConn, message []byte, clientAddr *net.UDPAddr, fortune string) {
 
 	var fortuneReq FortuneReqMessage = parseFortuneReqMessage(message, clientAddr, conn)
@@ -232,7 +234,6 @@ func listenAndServe(listener net.Listener) {
 	}
 }
 
-// Main workhorse method.
 func main() {
 
 	// Arguments
@@ -245,12 +246,16 @@ func main() {
 	udpServerAddress = "192.168.1.146:3000"
 	var fortune string = "Hello World - Trevor Jackson"
 
+	// Keeps track of clients who have connected to aserver
+	// Key: Client *net.UDPAddr address in string format
+	// Value: Nonce as a int64
 	clientList = make(map[string]int64)
 
 	startRPC(rpcAddr)
 
 	var conn *net.UDPConn = startListening(udpServerAddress)
 
+	// Read every incoming packet and hand the packet off to a new goroutine
 	for {
 		message, clientAddr := readMessage(conn)
 		go handleRequest(conn, message, clientAddr, fortune)

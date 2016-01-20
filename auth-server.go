@@ -1,11 +1,11 @@
 /*
-Implements the solution to assignment 1 for UBC CS 416 2015 W2.
+Implements the solution to assignment 2 for UBC CS 416 2015 W2.
 
 Usage:
-$ go run client.go [local UDP ip:port] [aserver UDP ip:port] [secret]
+$ go run auth-server.go [local UDP ip:port] [fserver rpc ip:port] [secret]
 
 Example:
-$ go run client.go 127.0.0.1:2020 198.162.52.206:1999
+$ go run auth-server.go 192.168.1.146:2020 192.168.1.146:1234 2016
 
 */
 
@@ -171,6 +171,8 @@ func createErrorMessage(message string) []byte {
 	return packet
 }
 
+// Return true if byte slice was a HashMessage
+// Always return HashMessage, even if empty
 func parseHashMessage(message []byte) (bool, HashMessage) {
 
 	hashMessage := HashMessage{}
@@ -209,6 +211,8 @@ func checkHashMatch(expectedHash []byte, givenHash string) bool {
 	}
 }
 
+// Main workhorse method
+// Handles any incoming packet
 func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secret string, message []byte, clientAddr *net.UDPAddr) {
 
 	// Returns true if message is a valid HashMessage
@@ -216,36 +220,41 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 
 	if check {
 
+		// Check that client has been given a nonce
 		hash := getClientHash(clientAddr, clientList)
 
 		if len(hash) <= 0 {
+
+			// Create and Send Error Message
 			var packet []byte = createErrorMessage("unknown remote client address")
-			// Send ErrMessage
 			conn.WriteToUDP(packet, clientAddr)
 			runtime.Goexit()
 		}
 
+		// Check that hash from packet matches one we expected
 		var match bool = checkHashMatch(hash, hashMessage.Hash)
 
 		if !match {
+
+			// Create and Send Error Message
 			var packet []byte = createErrorMessage("unexpected hash value")
 			conn.WriteToUDP(packet, clientAddr)
 			runtime.Goexit()
 		}
 
 		// get Fortune Server Info
-		//client, _ := rpc.DialHTTP("tcp", remoteAddr)
 		client, _ := rpc.Dial("tcp", remoteAddr)
 		fortuneInfo := FortuneInfoMessage{}
 
 		err := client.Call("FortuneServerRPC.GetFortuneInfo", clientAddr.String(), &fortuneInfo)
 		errorCheck(err, "rcp call")
 
-		//send FortuneInfoMessage
+		// send FortuneInfoMessage
 		var packet []byte = createFortuneInfoMessage(fortuneInfo)
 		conn.WriteToUDP(packet, clientAddr)
 
 	} else {
+		// Send a new Nonce to the client
 		var nonce int64 = generateNonce()
 
 		hash := computeMd5(secret, nonce)
@@ -257,7 +266,6 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 
 }
 
-// Main workhorse method.
 func main() {
 
 	// Arguments
@@ -270,10 +278,14 @@ func main() {
 	var remoteAddr string = "192.168.1.146:1234"
 	var secret string = "2016"
 
+	// Keeps track of clients who have connected
+	// Key: Client *net.UDPAddr address in string format
+	// Value: Nonce as a byte slice
 	clientList = make(map[string][]byte)
 
 	var conn *net.UDPConn = startListening(localAddr)
 
+	// Read every incoming packet and hand the packet off to a new goroutine
 	for {
 		message, clientAddr := readMessage(conn)
 		go handleRequest(conn, localAddr, remoteAddr, secret, message, clientAddr)
