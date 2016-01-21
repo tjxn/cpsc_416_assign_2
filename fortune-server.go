@@ -237,14 +237,14 @@ func listenAndServe(listener net.Listener) {
 func main() {
 
 	// Arguments
-	//var rpcAddr string = os.Args[1]
-	//udpServerAddress = os.Args[2]
-	//var fortune string = os.Args[3]
+	var rpcAddr string = os.Args[1]
+	udpServerAddress = os.Args[2]
+	var fortune string = os.Args[3]
 
 	// Hardcoded Arguments for Easier Debugging
-	var rpcAddr string = "192.168.1.146:1234"
-	udpServerAddress = "192.168.1.146:3000"
-	var fortune string = "Hello World - Trevor Jackson"
+	//var rpcAddr string = "192.168.1.146:1234"
+	//udpServerAddress = "192.168.1.146:3000"
+	//var fortune string = "Hello World - Trevor Jackson"
 
 	// Keeps track of clients who have connected to aserver
 	// Key: Client *net.UDPAddr address in string format

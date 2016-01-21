@@ -269,14 +269,14 @@ func handleRequest(conn *net.UDPConn, localAddr string, remoteAddr string, secre
 func main() {
 
 	// Arguments
-	//var localAddr string = os.Args[1]
-	//var remoteAddr string = os.Args[2]
-	//var secret string = os.Args[3]
+	var localAddr string = os.Args[1]
+	var remoteAddr string = os.Args[2]
+	var secret string = os.Args[3]
 
 	// Hardcoded Arguments for Easier Debugging
-	var localAddr string = "192.168.1.146:2020"
-	var remoteAddr string = "192.168.1.146:1234"
-	var secret string = "2016"
+	//var localAddr string = "192.168.1.146:2020"
+	//var remoteAddr string = "192.168.1.146:1234"
+	//var secret string = "2016"
 
 	// Keeps track of clients who have connected
 	// Key: Client *net.UDPAddr address in string format
