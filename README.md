@@ -6,11 +6,10 @@
 	University of British Columbia
 </h2>
 
-
-
 <h3>
 	<b>High-Level Protocol Description</b>
 </h3>
+This assignment outline comes from the [UBC CPSC 416 course webpage](https://www.cs.ubc.ca/~bestchai/teaching/cs416_2015w2/assign2/index.html).
 
 The aserver and fserver must together implement the protocol described in the first assignment.
 The interactions between the client and the aserver and the client and the fserver were described 
